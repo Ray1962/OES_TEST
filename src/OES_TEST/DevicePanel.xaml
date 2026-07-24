@@ -1,0 +1,66 @@
+<UserControl x:Class="OesTest.DevicePanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:oxy="http://oxyplot.org/wpf">
+    <DockPanel>
+        <Border DockPanel.Dock="Top"
+                Padding="10,8"
+                Background="#FAFAFA"
+                BorderBrush="#DDD"
+                BorderThickness="0,0,0,1">
+            <StackPanel>
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                    <TextBlock Text="{Binding Name}" FontWeight="Bold" FontSize="13"
+                               VerticalAlignment="Center" Margin="0,0,16,0"/>
+                    <Button Content="Connect"    Command="{Binding ConnectCommand}"    Padding="12,4" Margin="0,0,4,0"/>
+                    <Button Content="Disconnect" Command="{Binding DisconnectCommand}" Padding="12,4" Margin="0,0,16,0"/>
+                    <Button Content="Start"      Command="{Binding StartCommand}"      Padding="12,4" Margin="0,0,4,0"/>
+                    <Button Content="Stop"       Command="{Binding StopCommand}"       Padding="12,4" Margin="0,0,4,0"/>
+                    <Button Content="Save CSV"   Command="{Binding SaveCsvCommand}"    Padding="12,4" Margin="0,0,16,0"/>
+                    <CheckBox Content="Force Test Mode"
+                              IsChecked="{Binding ForceTestMode}"
+                              VerticalAlignment="Center"/>
+                    <TextBlock Margin="24,0,6,0" VerticalAlignment="Center" FontWeight="Bold">Status:</TextBlock>
+                    <TextBlock Text="{Binding StatusText}" VerticalAlignment="Center"/>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock VerticalAlignment="Center" Margin="0,0,4,0">Integration (ms):</TextBlock>
+                    <TextBox Width="60"
+                             Text="{Binding IntegrationTimeMs, UpdateSourceTrigger=PropertyChanged}"
+                             Margin="0,0,12,0"/>
+                    <TextBlock VerticalAlignment="Center" Margin="0,0,4,0">Average:</TextBlock>
+                    <TextBox Width="60"
+                             Text="{Binding AverageCount, UpdateSourceTrigger=PropertyChanged}"
+                             Margin="0,0,12,0"/>
+                    <TextBlock VerticalAlignment="Center" Margin="0,0,4,0">Polling (ms):</TextBlock>
+                    <TextBox Width="60"
+                             Text="{Binding PollingIntervalMs, UpdateSourceTrigger=PropertyChanged}"
+                             Margin="0,0,12,0"/>
+                    <Button Content="Apply"
+                            Command="{Binding ApplyParamsCommand}"
+                            Padding="12,2"/>
+                </StackPanel>
+            </StackPanel>
+        </Border>
+
+        <Border DockPanel.Dock="Bottom"
+                Padding="10,6"
+                Background="#F5F5F5"
+                BorderBrush="#DDD"
+                BorderThickness="0,1,0,0">
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Text="Serial:" FontWeight="Bold" Margin="0,0,4,0"/>
+                <TextBlock Text="{Binding SerialNumber}" Margin="0,0,16,0"/>
+                <TextBlock Text="Frame:" FontWeight="Bold" Margin="0,0,4,0"/>
+                <TextBlock Text="{Binding FrameSize}" Margin="0,0,16,0"/>
+                <TextBlock Text="Last:" FontWeight="Bold" Margin="0,0,4,0"/>
+                <TextBlock Text="{Binding LastFrameTimeText}" Margin="0,0,16,0"/>
+                <TextBlock Text="Test Mode:" FontWeight="Bold" Margin="0,0,4,0"/>
+                <TextBlock Text="{Binding IsTestMode}" Margin="0,0,24,0"/>
+                <TextBlock Text="{Binding StatusMessage}" Foreground="#444"/>
+            </StackPanel>
+        </Border>
+
+        <oxy:PlotView Model="{Binding PlotModel}" Background="White"/>
+    </DockPanel>
+</UserControl>

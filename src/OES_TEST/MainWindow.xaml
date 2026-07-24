@@ -1,0 +1,48 @@
+<Window x:Class="OesTest.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:OesTest"
+        Title="OES Test (Dual)" Height="900" Width="1100"
+        WindowStartupLocation="CenterScreen">
+    <Window.DataContext>
+        <local:MainViewModel />
+    </Window.DataContext>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="4"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <Border Grid.Row="0"
+                Padding="10,6"
+                Background="#EEF2F7"
+                BorderBrush="#CCC"
+                BorderThickness="0,0,0,1">
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Text="Dual OES" FontWeight="Bold" FontSize="14"
+                           VerticalAlignment="Center" Margin="0,0,16,0"/>
+                <Button Content="Connect Both"
+                        Command="{Binding ConnectBothCommand}"
+                        Padding="14,4" Margin="0,0,6,0"/>
+                <Button Content="Disconnect Both"
+                        Command="{Binding DisconnectBothCommand}"
+                        Padding="14,4" Margin="0,0,16,0"/>
+                <TextBlock Text="{Binding StatusMessage}" VerticalAlignment="Center" Foreground="#444"/>
+            </StackPanel>
+        </Border>
+
+        <local:DevicePanel Grid.Row="1" DataContext="{Binding Device1}"/>
+
+        <GridSplitter Grid.Row="2"
+                      HorizontalAlignment="Stretch"
+                      VerticalAlignment="Stretch"
+                      Background="#DDD"
+                      ResizeBehavior="PreviousAndNext"
+                      ResizeDirection="Rows"/>
+
+        <local:DevicePanel Grid.Row="3" DataContext="{Binding Device2}"/>
+    </Grid>
+</Window>
