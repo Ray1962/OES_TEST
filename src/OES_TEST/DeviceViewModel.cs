@@ -82,7 +82,7 @@ public sealed class DeviceViewModel : INotifyPropertyChanged, IDisposable
     private int _pollingIntervalMs = 200;
     public int PollingIntervalMs { get => _pollingIntervalMs; set => Set(ref _pollingIntervalMs, value); }
 
-    private bool _forceTestMode = true;
+    private bool _forceTestMode = false;
     public bool ForceTestMode { get => _forceTestMode; set => Set(ref _forceTestMode, value); }
 
     private DeviceConnectionStatus _status = DeviceConnectionStatus.Disconnected;
@@ -306,7 +306,18 @@ public sealed class DeviceViewModel : INotifyPropertyChanged, IDisposable
     };
 
     private void OnStatusChanged(object? sender, DeviceConnectionStatus s) =>
-        _dispatcher.BeginInvoke(() => Status = s);
+        _dispatcher.BeginInvoke(() =>
+        {
+            Status = s;
+            // The SDK stops the acquisition loop by itself after MaxConsecutiveErrors and reports it
+            // by leaving the Acquiring state. Follow it, or the panel keeps claiming it is acquiring
+            // and Start stays disabled with nothing running.
+            if (s != DeviceConnectionStatus.Acquiring && IsAcquiring)
+            {
+                IsAcquiring = false;
+                StatusMessage = "Acquisition stopped by device";
+            }
+        });
 
     private void OnErrorOccurred(object? sender, OesErrorEventArgs e) =>
         _dispatcher.BeginInvoke(() => StatusMessage = "Error: " + e.Message);

@@ -15,22 +15,27 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Aqst.OesSpectrometer" Version="0.4.0" />
+    <PackageReference Include="Aqst.OesSpectrometer" Version="0.4.2" />
     <PackageReference Include="OxyPlot.Wpf" Version="2.2.0" />
   </ItemGroup>
 
   <!--
-    The Aqst.OesSpectrometer 0.1.0 package ships UserApplication.dll / SiUSBXp.dll under
-    runtimes\win-x64\native\, but its DllResolver only searches the app base directory.
-    Flatten the native DLLs into the output root so the resolver can find them.
+    The Aqst.OesSpectrometer package ships its native DLLs under runtimes\win-x64\native\,
+    but the DllResolver only searches the app base directory. Flatten them into the output
+    root so the resolver can find them. libsodium.dll is an import of the 0.4.x
+    UserApplication.dll — if it is missing, LoadLibrary fails and the SDK silently falls
+    back to test mode, so all three must land side by side.
   -->
   <Target Name="FlattenOesNativeDlls" AfterTargets="Build;Publish">
     <ItemGroup>
       <_OesNative Include="$(OutDir)runtimes\win-x64\native\UserApplication.dll" />
       <_OesNative Include="$(OutDir)runtimes\win-x64\native\SiUSBXp.dll" />
+      <_OesNative Include="$(OutDir)runtimes\win-x64\native\libsodium.dll" />
       <_OesNativePub Include="$(PublishDir)runtimes\win-x64\native\UserApplication.dll"
                      Condition="'$(PublishDir)' != ''" />
       <_OesNativePub Include="$(PublishDir)runtimes\win-x64\native\SiUSBXp.dll"
+                     Condition="'$(PublishDir)' != ''" />
+      <_OesNativePub Include="$(PublishDir)runtimes\win-x64\native\libsodium.dll"
                      Condition="'$(PublishDir)' != ''" />
     </ItemGroup>
     <Copy SourceFiles="@(_OesNative)"
