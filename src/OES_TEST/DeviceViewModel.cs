@@ -22,6 +22,7 @@ public sealed class DeviceViewModel : INotifyPropertyChanged, IDisposable
 {
     private readonly Dispatcher _dispatcher = Dispatcher.CurrentDispatcher;
     private readonly LineSeries _series;
+    private readonly LinearAxis _intensityAxis;
     private OesSpectrometer? _device;
     private SpectrumSample? _lastSample;
 
@@ -44,7 +45,7 @@ public sealed class DeviceViewModel : INotifyPropertyChanged, IDisposable
             MinorGridlineStyle = LineStyle.Dot,
             MinorGridlineColor = OxyColor.FromRgb(0xF0, 0xF0, 0xF0),
         });
-        PlotModel.Axes.Add(new LinearAxis
+        _intensityAxis = new LinearAxis
         {
             Position = AxisPosition.Left,
             Title = "Intensity (a.u.)",
@@ -52,7 +53,8 @@ public sealed class DeviceViewModel : INotifyPropertyChanged, IDisposable
             MajorGridlineColor = OxyColor.FromRgb(0xE5, 0xE5, 0xE5),
             MinorGridlineStyle = LineStyle.Dot,
             MinorGridlineColor = OxyColor.FromRgb(0xF0, 0xF0, 0xF0),
-        });
+        };
+        PlotModel.Axes.Add(_intensityAxis);
         _series = new LineSeries
         {
             Color = seriesColor,
@@ -85,6 +87,53 @@ public sealed class DeviceViewModel : INotifyPropertyChanged, IDisposable
     private bool _forceTestMode = false;
     public bool ForceTestMode { get => _forceTestMode; set => Set(ref _forceTestMode, value); }
 
+    // Off by default (matches the SDK 0.4.3 default). When on, the app probes the device for
+    // background-remove support right after connecting — see ProbeBackgroundRemoveIfEnabledAsync.
+    private bool _enableBackgroundRemove = false;
+    public bool EnableBackgroundRemove { get => _enableBackgroundRemove; set => Set(ref _enableBackgroundRemove, value); }
+
+    private OesConnectionType _connectionType = OesConnectionType.Usb;
+    /// <summary>USB (enumerate + open index 0) vs Ethernet (open <see cref="IpAddress"/> directly).</summary>
+    public OesConnectionType ConnectionType
+    {
+        get => _connectionType;
+        set { if (Set(ref _connectionType, value)) OnPropertyChanged(nameof(IsEthernetSelected)); }
+    }
+
+    /// <summary>Enum values backing the connection-type selector's ItemsSource.</summary>
+    public OesConnectionType[] ConnectionTypes { get; } =
+        (OesConnectionType[])Enum.GetValues(typeof(OesConnectionType));
+
+    /// <summary>True when <see cref="ConnectionType"/> is Ethernet — drives the IP textbox visibility.</summary>
+    public bool IsEthernetSelected => ConnectionType == OesConnectionType.Ethernet;
+
+    private string _ipAddress = string.Empty;
+    /// <summary>Target IPv4 address used when <see cref="ConnectionType"/> is Ethernet.</summary>
+    public string IpAddress { get => _ipAddress; set => Set(ref _ipAddress, value); }
+
+    private OesAcquireMode _acquireMode = OesAcquireMode.HardwareAverage;
+    /// <summary>Native acquisition method. Hot-applied on a live device via the Apply button.</summary>
+    public OesAcquireMode AcquireMode { get => _acquireMode; set => Set(ref _acquireMode, value); }
+
+    /// <summary>Enum values backing the acquire-mode selector's ItemsSource.</summary>
+    public OesAcquireMode[] AcquireModes { get; } =
+        (OesAcquireMode[])Enum.GetValues(typeof(OesAcquireMode));
+
+    private OesAverageMode _averageMode = OesAverageMode.Hardware;
+    /// <summary>Hardware vs software frame averaging. Hot-applied on a live device via the Apply button.</summary>
+    public OesAverageMode AverageMode { get => _averageMode; set => Set(ref _averageMode, value); }
+
+    /// <summary>Enum values backing the average-mode selector's ItemsSource.</summary>
+    public OesAverageMode[] AverageModes { get; } =
+        (OesAverageMode[])Enum.GetValues(typeof(OesAverageMode));
+
+    /// <summary>
+    /// Connect-time parameters (connection type, IP, background remove, force-test-mode) are baked into
+    /// <see cref="OesParameters"/> when the device wrapper is built. Changing them on a live device does
+    /// nothing until reconnect, so their controls are only editable while disconnected — set before Connect.
+    /// </summary>
+    public bool IsPreConnectEditable => !IsConnected && !IsBusy;
+
     private DeviceConnectionStatus _status = DeviceConnectionStatus.Disconnected;
     public DeviceConnectionStatus Status
     {
@@ -104,7 +153,7 @@ public sealed class DeviceViewModel : INotifyPropertyChanged, IDisposable
     public bool IsConnected
     {
         get => _isConnected;
-        private set { if (Set(ref _isConnected, value)) RaiseCanExec(); }
+        private set { if (Set(ref _isConnected, value)) { RaiseCanExec(); OnPropertyChanged(nameof(IsPreConnectEditable)); } }
     }
 
     private bool _isAcquiring;
@@ -118,7 +167,7 @@ public sealed class DeviceViewModel : INotifyPropertyChanged, IDisposable
     public bool IsBusy
     {
         get => _isBusy;
-        private set { if (Set(ref _isBusy, value)) RaiseCanExec(); }
+        private set { if (Set(ref _isBusy, value)) { RaiseCanExec(); OnPropertyChanged(nameof(IsPreConnectEditable)); } }
     }
 
     private string _serialNumber = "—";
@@ -169,6 +218,7 @@ public sealed class DeviceViewModel : INotifyPropertyChanged, IDisposable
             CreateDeviceWrapper();
             bool ok = await _device!.ConnectAsync();
             ApplyConnectResult(ok);
+            if (ok) await ProbeBackgroundRemoveIfEnabledAsync();
         }
         catch (Exception ex)
         {
@@ -196,6 +246,7 @@ public sealed class DeviceViewModel : INotifyPropertyChanged, IDisposable
             CreateDeviceWrapper();
             bool ok = await _device!.AttachAsync(handle);
             ApplyConnectResult(ok);
+            if (ok) await ProbeBackgroundRemoveIfEnabledAsync();
         }
         catch (Exception ex)
         {
@@ -234,6 +285,29 @@ public sealed class DeviceViewModel : INotifyPropertyChanged, IDisposable
         else
         {
             StatusMessage = "Connect failed: " + (_device?.LastConnectionAttemptResult ?? "no device");
+        }
+    }
+
+    /// <summary>
+    /// When Background Remove is enabled, probe the freshly-connected device once (SDK runs
+    /// UAI_BackgroundRemove against a single frame). If the unit rejects it, warn the user and clear
+    /// the option so acquisition streams raw intensities. Skipped in test mode — there is no real
+    /// hardware correction to exercise there.
+    /// </summary>
+    private async Task ProbeBackgroundRemoveIfEnabledAsync()
+    {
+        if (_device is null || !IsConnected || !EnableBackgroundRemove || IsTestMode) return;
+
+        var support = await _device.ProbeBackgroundRemoveAsync();
+        if (support == BackgroundRemoveSupport.Unsupported)
+        {
+            EnableBackgroundRemove = false; // reflect reality: the correction is off from here on
+            StatusMessage = "Background Remove 不支援，已停用";
+            MessageBox.Show(
+                $"此光譜儀（序號 {SerialNumber}）不支援 Background Remove 背景校正。\n\n" +
+                "已自動停用該選項，將以原始強度 (raw intensities) 進行擷取。",
+                $"{Name} — Background Remove 不支援",
+                MessageBoxButton.OK, MessageBoxImage.Warning);
         }
     }
 
@@ -299,10 +373,15 @@ public sealed class DeviceViewModel : INotifyPropertyChanged, IDisposable
 
     private OesParameters BuildParameters() => new()
     {
-        IntegrationTimeMs = IntegrationTimeMs,
-        AverageCount      = AverageCount,
-        PollingIntervalMs = PollingIntervalMs,
-        ForceTestMode     = ForceTestMode,
+        IntegrationTimeMs      = IntegrationTimeMs,
+        AverageCount           = AverageCount,
+        PollingIntervalMs      = PollingIntervalMs,
+        ForceTestMode          = ForceTestMode,
+        EnableBackgroundRemove = EnableBackgroundRemove,
+        ConnectionType         = ConnectionType,
+        IpAddress              = IpAddress,
+        AcquireMode            = AcquireMode,
+        AverageMode            = AverageMode,
     };
 
     private void OnStatusChanged(object? sender, DeviceConnectionStatus s) =>
@@ -338,8 +417,24 @@ public sealed class DeviceViewModel : INotifyPropertyChanged, IDisposable
         var points = _series.Points;
         points.Clear();
         if (points.Capacity < n) points.Capacity = n;
+        double min = double.PositiveInfinity, max = double.NegativeInfinity;
         for (int i = 0; i < n; i++)
-            points.Add(new DataPoint(wl[i], inten[i]));
+        {
+            double y = inten[i];
+            points.Add(new DataPoint(wl[i], y));
+            if (y < min) min = y;
+            if (y > max) max = y;
+        }
+
+        // Follow the Y axis to this frame's intensity range so the trace fills the plot and changes
+        // stay visible. A 5% margin above/below keeps peaks off the frame edge; a flat frame gets a
+        // small fallback span so the axis doesn't collapse to zero height.
+        if (n > 0 && !double.IsInfinity(min) && !double.IsInfinity(max))
+        {
+            double pad = max > min ? (max - min) * 0.05 : Math.Max(1.0, Math.Abs(max) * 0.05);
+            _intensityAxis.Minimum = min - pad;
+            _intensityAxis.Maximum = max + pad;
+        }
 
         LastFrameTime = sample.Timestamp;
         IsTestMode = sample.IsTestMode;

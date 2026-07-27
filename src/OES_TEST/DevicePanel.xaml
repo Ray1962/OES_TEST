@@ -2,6 +2,9 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:oxy="http://oxyplot.org/wpf">
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+    </UserControl.Resources>
     <DockPanel>
         <Border DockPanel.Dock="Top"
                 Padding="10,8"
@@ -9,7 +12,7 @@
                 BorderBrush="#DDD"
                 BorderThickness="0,0,0,1">
             <StackPanel>
-                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                <WrapPanel Margin="0,0,0,8">
                     <TextBlock Text="{Binding Name}" FontWeight="Bold" FontSize="13"
                                VerticalAlignment="Center" Margin="0,0,16,0"/>
                     <Button Content="Connect"    Command="{Binding ConnectCommand}"    Padding="12,4" Margin="0,0,4,0"/>
@@ -20,10 +23,35 @@
                     <CheckBox Content="Force Test Mode"
                               IsChecked="{Binding ForceTestMode}"
                               VerticalAlignment="Center"/>
+                    <CheckBox Content="Background Remove"
+                              IsChecked="{Binding EnableBackgroundRemove}"
+                              IsEnabled="{Binding IsPreConnectEditable}"
+                              VerticalAlignment="Center"
+                              Margin="12,0,0,0"
+                              ToolTip="需在連線前勾選才會生效。連線後會先探測此光譜儀是否支援背景校正；不支援則跳警告並改用原始強度。連線後此選項會鎖定。"/>
                     <TextBlock Margin="24,0,6,0" VerticalAlignment="Center" FontWeight="Bold">Status:</TextBlock>
                     <TextBlock Text="{Binding StatusText}" VerticalAlignment="Center"/>
-                </StackPanel>
-                <StackPanel Orientation="Horizontal">
+                </WrapPanel>
+                <WrapPanel Margin="0,0,0,8">
+                    <TextBlock VerticalAlignment="Center" Margin="0,0,4,0">Type:</TextBlock>
+                    <ComboBox Width="100"
+                              ItemsSource="{Binding ConnectionTypes}"
+                              SelectedItem="{Binding ConnectionType}"
+                              IsEnabled="{Binding IsPreConnectEditable}"
+                              VerticalAlignment="Center"
+                              Margin="0,0,12,0"
+                              ToolTip="USB：列舉並開啟裝置。Ethernet：直接以下方 IP 位址連線（請用該面板的 Connect 按鈕）。連線後鎖定。"/>
+                    <StackPanel Orientation="Horizontal"
+                                Visibility="{Binding IsEthernetSelected, Converter={StaticResource BoolToVis}}">
+                        <TextBlock VerticalAlignment="Center" Margin="0,0,4,0">IP Address:</TextBlock>
+                        <TextBox Width="140"
+                                 Text="{Binding IpAddress, UpdateSourceTrigger=PropertyChanged}"
+                                 IsEnabled="{Binding IsPreConnectEditable}"
+                                 VerticalAlignment="Center"
+                                 ToolTip="光譜儀的 IPv4 位址，例如 169.254.101.110"/>
+                    </StackPanel>
+                </WrapPanel>
+                <WrapPanel>
                     <TextBlock VerticalAlignment="Center" Margin="0,0,4,0">Integration (ms):</TextBlock>
                     <TextBox Width="60"
                              Text="{Binding IntegrationTimeMs, UpdateSourceTrigger=PropertyChanged}"
@@ -36,10 +64,24 @@
                     <TextBox Width="60"
                              Text="{Binding PollingIntervalMs, UpdateSourceTrigger=PropertyChanged}"
                              Margin="0,0,12,0"/>
+                    <TextBlock VerticalAlignment="Center" Margin="0,0,4,0">Acquire:</TextBlock>
+                    <ComboBox Width="130"
+                              ItemsSource="{Binding AcquireModes}"
+                              SelectedItem="{Binding AcquireMode}"
+                              VerticalAlignment="Center"
+                              Margin="0,0,12,0"
+                              ToolTip="採集方式：HardwareAverage=UAI_SpectrometerDataAcquireHWAvg（預設）、Oneshot=UAI_SpectrometerDataOneshot（網路裝置參考範例用）、Standard=UAI_SpectrometerDataAcquire。改後按 Apply 即時套用（連線中也可切換比較）。"/>
+                    <TextBlock VerticalAlignment="Center" Margin="0,0,4,0">Avg mode:</TextBlock>
+                    <ComboBox Width="95"
+                              ItemsSource="{Binding AverageModes}"
+                              SelectedItem="{Binding AverageMode}"
+                              VerticalAlignment="Center"
+                              Margin="0,0,12,0"
+                              ToolTip="平均方式（作用於 Average 次數）：Hardware=交給裝置硬體平均（預設，速度快，但某些網路模組會使峰位移/變寬）；Software=以 average=1 連取 N 幀在軟體端逐點平均（不失真，但較慢）。改後按 Apply。"/>
                     <Button Content="Apply"
                             Command="{Binding ApplyParamsCommand}"
                             Padding="12,2"/>
-                </StackPanel>
+                </WrapPanel>
             </StackPanel>
         </Border>
 

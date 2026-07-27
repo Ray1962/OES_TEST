@@ -54,8 +54,9 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         StatusMessage = "Connecting both…";
         try
         {
-            // Honor per-device test-mode toggles: only enumerate hardware for slots that want real devices.
-            bool needHardware = !Device1.ForceTestMode || !Device2.ForceTestMode;
+            // Only enumerate USB when a slot actually wants a USB device — test-mode and Ethernet slots
+            // never consume a discovery handle (Ethernet opens its IP directly via the standalone path).
+            bool needHardware = SlotNeedsUsb(Device1) || SlotNeedsUsb(Device2);
             var handles = needHardware
                 ? OesDiscovery.OpenAllDevices().ToList()
                 : new System.Collections.Generic.List<OpenedHandle>();
@@ -73,10 +74,11 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
                 OesDiscovery.CloseHandle(handles[i]);
             }
 
+            // Summarize each slot's actual outcome — the raw USB-handle count hides Ethernet slots, which
+            // open by IP through the standalone path and never consume a discovery handle.
             int hwUsed = Math.Min(hwIdx, handles.Count);
-            StatusMessage = handles.Count == 0 && needHardware
-                ? "No OES hardware found — slots fell back to test mode."
-                : $"Connect Both done. Hardware handles used: {hwUsed}/{handles.Count}.";
+            StatusMessage = $"Connect Both done. {DescribeSlot(Device1)}; {DescribeSlot(Device2)}. " +
+                            $"(USB handles used {hwUsed}/{handles.Count})";
         }
         catch (Exception ex)
         {
@@ -88,6 +90,21 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         {
             IsBusy = false;
         }
+    }
+
+    /// <summary>A slot needs a USB discovery handle only when it is neither test-mode nor Ethernet.</summary>
+    private static bool SlotNeedsUsb(DeviceViewModel slot) =>
+        !slot.ForceTestMode && slot.ConnectionType != OesConnectionType.Ethernet;
+
+    /// <summary>Human-readable per-slot connection outcome, including the transport used.</summary>
+    private static string DescribeSlot(DeviceViewModel slot)
+    {
+        string transport = slot.ConnectionType == OesConnectionType.Ethernet
+            ? $"Ethernet {(string.IsNullOrWhiteSpace(slot.IpAddress) ? "" : slot.IpAddress)}".TrimEnd()
+            : "USB";
+        if (!slot.IsConnected) return $"{slot.Name}: not connected";
+        if (slot.IsTestMode)   return $"{slot.Name}: {transport} → test mode";
+        return $"{slot.Name}: {transport} connected ({slot.SerialNumber})";
     }
 
     /// <summary>
@@ -102,6 +119,13 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
 
         // Test-mode slot: don't consume a hardware handle.
         if (slot.ForceTestMode)
+        {
+            await slot.ConnectStandaloneAsync();
+            return false;
+        }
+
+        // Ethernet slot: opened directly by IP through the standalone path — never adopt a USB handle.
+        if (slot.ConnectionType == OesConnectionType.Ethernet)
         {
             await slot.ConnectStandaloneAsync();
             return false;

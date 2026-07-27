@@ -28,6 +28,8 @@ The `FlattenOesNativeDlls` target in `OES_TEST.csproj` copies `UserApplication.d
 
 Not every spectrometer supports every correction in the SDK pipeline. `OS361AC55042227` (350–650 nm) returns `0x4` from `UAI_BackgroundRemove` for every integration time and average count — no background-calibration data in ROM — while `OS361AC55035689` (365–545 nm) accepts the call. Since **0.4.2** the SDK latches that, warns once through `ErrorOccurred`, and keeps streaming raw intensities; before that the panel showed a connected device with an all-zero spectrum and acquisition died after five frames.
 
+**Background Remove is opt-in per panel and connect-time only (0.4.3).** Each `DevicePanel` has a "Background Remove" checkbox bound to `DeviceViewModel.EnableBackgroundRemove` (default **off**, matching the SDK 0.4.3 default). It is a **connect-time parameter**: `BuildParameters()` bakes it into `OesParameters` inside `CreateDeviceWrapper()`, so it only reaches the device if set *before* Connect. To make that unmissable, the checkbox is disabled once connected/busy via `IsBackgroundRemoveEditable` (`!IsConnected && !IsBusy`) — toggling it on a live device is a no-op (the flag never reaches the device and the probe never re-runs), which is exactly the trap that made it "have no effect" in an earlier build. When checked before connecting, the connect paths (`ConnectStandaloneAsync` / `AttachAsync`) call `ProbeBackgroundRemoveIfEnabledAsync()` right after a successful connect: it invokes `IOesSpectrometer.ProbeBackgroundRemoveAsync()` and, on `BackgroundRemoveSupport.Unsupported`, pops a warning `MessageBox`, clears the checkbox, and lets acquisition stream raw intensities. The probe is skipped in test mode.
+
 Two consequences the app relies on: failed frames no longer raise `SpectrumAvailable` (so the plot is never fed a stale/zero buffer), and a self-aborting acquisition loop leaves the `Acquiring` status — `DeviceViewModel.OnStatusChanged` uses that to clear `IsAcquiring`, since nothing else tells the panel the loop stopped.
 
 ## Architecture
@@ -56,6 +58,14 @@ The `use-multi-oes` and `create-oes` skills document this package's API in more 
 ### Test mode
 
 `ForceTestMode` defaults to **false** on both slots, so the app targets real hardware out of the box; check "Force Test Mode" per panel to work against the package's simulator instead. Note `ConnectBothAsync` skips USB enumeration entirely when *both* slots are in test mode. The package also drops into test mode on its own when `UserApplication.dll` cannot be loaded (surfaced via the `DllNotFound` event and `DeviceInfo.IsTestMode`).
+
+### Per-panel acquire method
+
+Each `DevicePanel` has an **Acquire** dropdown (`DeviceViewModel.AcquireMode`, `OesAcquireMode`, default `HardwareAverage`) and an **Avg mode** dropdown (`AverageMode`, `OesAverageMode`, default `Hardware`), both flowing through `BuildParameters()`. Unlike the connect-time settings they are **hot-applied**: `UpdateParametersAsync` pushes them to the live device, so the selectors stay editable while connected and take effect on **Apply**. Pick `Oneshot` on a network OES that shows segmented/torn frames under `HardwareAverage`; pick `Avg mode = Software` when the module's hardware averager shifts/broadens peaks (observed on the Z5/Ethernet OES #2) — software averaging acquires N single frames and averages them element-wise. Compare either without reconnecting.
+
+### Per-panel connection type (USB / Ethernet)
+
+Each `DevicePanel` has a **Type** selector (`DeviceViewModel.ConnectionType`, default `Usb`) and, when Ethernet is picked, an **IP Address** textbox (`IpAddress`) that shows via `IsEthernetSelected` + `BooleanToVisibilityConverter`. Both flow through `BuildParameters()` and are connect-time only, so they share the `IsPreConnectEditable` (`!IsConnected && !IsBusy`) lock — set them before Connect. **Ethernet opens by IP directly** (`OesSpectrometer.ConnectAsync` → `ConnectDeviceEthernet`), so an Ethernet slot must go through the standalone path: `ConnectBothAsync`/`SlotNeedsUsb` never hand it a `OesDiscovery.OpenAllDevices` (USB) handle, and USB enumeration is skipped when neither slot needs USB. Use the panel's own **Connect** button for an Ethernet device.
 
 ### Conventions
 
