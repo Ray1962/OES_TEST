@@ -70,7 +70,7 @@
                               SelectedItem="{Binding AcquireMode}"
                               VerticalAlignment="Center"
                               Margin="0,0,12,0"
-                              ToolTip="採集方式：HardwareAverage=UAI_SpectrometerDataAcquireHWAvg（預設）、Oneshot=UAI_SpectrometerDataOneshot（網路裝置參考範例用）、Standard=UAI_SpectrometerDataAcquire。改後按 Apply 即時套用（連線中也可切換比較）。"/>
+                              ToolTip="採集方式：HWAvg=UAI_SpectrometerDataAcquireHWAvg（預設）、Oneshot=UAI_SpectrometerDataOneshot（網路裝置參考範例用）、Standard=UAI_SpectrometerDataAcquire。改後按 Apply 即時套用（連線中也可切換比較）。"/>
                     <TextBlock VerticalAlignment="Center" Margin="0,0,4,0">Avg mode:</TextBlock>
                     <ComboBox Width="95"
                               ItemsSource="{Binding AverageModes}"

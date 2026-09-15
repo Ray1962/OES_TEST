@@ -61,7 +61,7 @@ The `use-multi-oes` and `create-oes` skills document this package's API in more 
 
 ### Per-panel acquire method
 
-Each `DevicePanel` has an **Acquire** dropdown (`DeviceViewModel.AcquireMode`, `OesAcquireMode`, default `HardwareAverage`) and an **Avg mode** dropdown (`AverageMode`, `OesAverageMode`, default `Hardware`), both flowing through `BuildParameters()`. Unlike the connect-time settings they are **hot-applied**: `UpdateParametersAsync` pushes them to the live device, so the selectors stay editable while connected and take effect on **Apply**. Pick `Oneshot` on a network OES that shows segmented/torn frames under `HardwareAverage`; pick `Avg mode = Software` when the module's hardware averager shifts/broadens peaks (observed on the Z5/Ethernet OES #2) — software averaging acquires N single frames and averages them element-wise. Compare either without reconnecting.
+Each `DevicePanel` has an **Acquire** dropdown (`DeviceViewModel.AcquireMode`, `OesAcquireMode`, default `HWAvg` — `HardwareAverage` before SDK 0.5.0) and an **Avg mode** dropdown (`AverageMode`, `OesAverageMode`, default `Hardware`), both flowing through `BuildParameters()`. Unlike the connect-time settings they are **hot-applied**: `UpdateParametersAsync` pushes them to the live device, so the selectors stay editable while connected and take effect on **Apply**. Pick `Oneshot` on a network OES that shows segmented/torn frames under `HardwareAverage`; pick `Avg mode = Software` when the module's hardware averager shifts/broadens peaks (observed on the Z5/Ethernet OES #2) — software averaging acquires N single frames and averages them element-wise. Compare either without reconnecting.
 
 ### Per-panel connection type (USB / Ethernet)
 
