@@ -111,7 +111,7 @@ public sealed class DeviceViewModel : INotifyPropertyChanged, IDisposable
     /// <summary>Target IPv4 address used when <see cref="ConnectionType"/> is Ethernet.</summary>
     public string IpAddress { get => _ipAddress; set => Set(ref _ipAddress, value); }
 
-    private OesAcquireMode _acquireMode = OesAcquireMode.HardwareAverage;
+    private OesAcquireMode _acquireMode = OesAcquireMode.HWAvg;
     /// <summary>Native acquisition method. Hot-applied on a live device via the Apply button.</summary>
     public OesAcquireMode AcquireMode { get => _acquireMode; set => Set(ref _acquireMode, value); }
 
@@ -268,7 +268,7 @@ public sealed class DeviceViewModel : INotifyPropertyChanged, IDisposable
         _device.ErrorOccurred     += OnErrorOccurred;
         _device.DllNotFound       += OnDllNotFound;
         _device.SpectrumAvailable += OnSpectrumAvailable;
-        _device.ForceTestMode(ForceTestMode);
+        _device.ForceSimulation(ForceTestMode);
     }
 
     private void ApplyConnectResult(bool ok)
@@ -279,7 +279,7 @@ public sealed class DeviceViewModel : INotifyPropertyChanged, IDisposable
             SerialNumber = string.IsNullOrWhiteSpace(_device.DeviceInfo.SerialNumber)
                 ? "—" : _device.DeviceInfo.SerialNumber;
             FrameSize = _device.DeviceInfo.FrameSize;
-            IsTestMode = _device.DeviceInfo.IsTestMode;
+            IsTestMode = _device.DeviceInfo.IsSimulated;
             StatusMessage = $"Connected{(IsTestMode ? " (Test Mode)" : "")}";
         }
         else
@@ -376,7 +376,7 @@ public sealed class DeviceViewModel : INotifyPropertyChanged, IDisposable
         IntegrationTimeMs      = IntegrationTimeMs,
         AverageCount           = AverageCount,
         PollingIntervalMs      = PollingIntervalMs,
-        ForceTestMode          = ForceTestMode,
+        ForceSimulation        = ForceTestMode,
         EnableBackgroundRemove = EnableBackgroundRemove,
         ConnectionType         = ConnectionType,
         IpAddress              = IpAddress,
@@ -437,7 +437,7 @@ public sealed class DeviceViewModel : INotifyPropertyChanged, IDisposable
         }
 
         LastFrameTime = sample.Timestamp;
-        IsTestMode = sample.IsTestMode;
+        IsTestMode = sample.IsSimulated;
         if (FrameSize == 0) FrameSize = n;
         if (SerialNumber == "—" && !string.IsNullOrWhiteSpace(sample.SerialNumber))
             SerialNumber = sample.SerialNumber;
@@ -503,7 +503,7 @@ public sealed class DeviceViewModel : INotifyPropertyChanged, IDisposable
         writer.WriteLine("# Timestamp,{0}", sample.Timestamp.ToString("o", inv));
         writer.WriteLine("# IntegrationTimeMs,{0}", IntegrationTimeMs.ToString(inv));
         writer.WriteLine("# AverageCount,{0}", AverageCount.ToString(inv));
-        writer.WriteLine("# IsTestMode,{0}", sample.IsTestMode);
+        writer.WriteLine("# IsTestMode,{0}", sample.IsSimulated);
         writer.WriteLine("# Points,{0}", n);
         writer.WriteLine("Wavelength (nm),Intensity");
         for (int i = 0; i < n; i++)
