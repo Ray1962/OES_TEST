@@ -66,8 +66,8 @@ public sealed class DeviceViewModel : INotifyPropertyChanged, IDisposable
 
         ConnectCommand     = new RelayCommand(async () => await ConnectAsync(),     () => !IsConnected && !IsBusy);
         DisconnectCommand  = new RelayCommand(async () => await DisconnectAsync(),  () =>  IsConnected && !IsBusy);
-        StartCommand       = new RelayCommand(StartAcquisition,                     () =>  IsConnected && !IsAcquiring);
-        StopCommand        = new RelayCommand(StopAcquisition,                      () =>  IsAcquiring);
+        StartCommand       = new RelayCommand(async () => await StartAcquisitionAsync(), () =>  IsConnected && !IsAcquiring);
+        StopCommand        = new RelayCommand(async () => await StopAcquisitionAsync(),  () =>  IsAcquiring);
         ApplyParamsCommand = new RelayCommand(async () => await ApplyParametersAsync(), () => IsConnected && !IsBusy);
         SaveCsvCommand     = new RelayCommand(SaveSpectrumToCsv,                    () => _lastSample is not null);
     }
@@ -317,7 +317,7 @@ public sealed class DeviceViewModel : INotifyPropertyChanged, IDisposable
         IsBusy = true;
         try
         {
-            if (IsAcquiring) StopAcquisition();
+            if (IsAcquiring) await StopAcquisitionAsync();
             await _device.DisconnectAsync();
         }
         catch (Exception ex)
@@ -334,20 +334,20 @@ public sealed class DeviceViewModel : INotifyPropertyChanged, IDisposable
         }
     }
 
-    private void StartAcquisition()
+    private async Task StartAcquisitionAsync()
     {
         if (_device is null) return;
-        if (_device.StartAcquisition())
+        if (await _device.StartAcquisitionAsync())
         {
             IsAcquiring = true;
             StatusMessage = "Acquiring…";
         }
     }
 
-    private void StopAcquisition()
+    private async Task StopAcquisitionAsync()
     {
         if (_device is null) return;
-        _device.StopAcquisition();
+        await _device.StopAcquisitionAsync();
         IsAcquiring = false;
         StatusMessage = "Stopped";
     }
